@@ -10,29 +10,14 @@ export const loginController = async (req: Request, res: Response) => {
     const { email, password } = req.body
     if (!email || !password) return res.status(400).json({ error: "Correo y contraseña son requeridos" })
 
-    const defaultCredentials = {
-        email: "admin@backend.com",
-        password: "Ll1820M8ZfjGHYj",
-    }
-
     try {
-        let userId
+        const user = await UsuariosModel.findOne({ email })
+        if (!user) return res.status(404).json({ error: "Usuario no encontrado" })
 
-        if (email === defaultCredentials.email && password === defaultCredentials.password) {
-            userId = "admin"
-        } else {
-            const user = await UsuariosModel.findOne({ email })
-            if (!user) {
-                return res.status(404).json({ error: "Usuario no encontrado" })
-            }
+        const isPasswordCorrect = await bcrypt.compare(password, user.password)
+        if (!isPasswordCorrect) return res.status(401).json({ error: "Contraseña incorrecta" })
 
-            const isPasswordCorrect = await bcrypt.compare(password, user.password)
-            if (!isPasswordCorrect) {
-                return res.status(401).json({ error: "Contraseña incorrecta" })
-            }
-
-            userId = user._id
-        }
+        const userId = user._id
 
         const payload = { userId }
         const secretKey = process.env.KEY_JSON_WEB_TOKEN ?? "default_secret"
@@ -41,6 +26,7 @@ export const loginController = async (req: Request, res: Response) => {
         res.json({
             message: "Usuario autenticado exitosamente",
             token: token,
+            id: userId
         })
     } catch (err) {
         console.error(err)
